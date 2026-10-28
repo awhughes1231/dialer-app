@@ -112,16 +112,39 @@ export function readRecord(json: unknown, singular: string): unknown | null {
   return null;
 }
 
+function isRecordId(value: unknown): value is string {
+  return typeof value === "string" && value.length >= 8 && !/\s/.test(value);
+}
+
+/**
+ * Twenty's metadata and core REST APIs have shipped several create envelopes:
+ * `{ data: { createOneObject } }` (legacy metadata), `{ data: { createCall } }`,
+ * `{ data: { object } }`, and `{ data: { id } }` / a bare object. Any of those
+ * with an id is accepted. Callers that still get nothing should look the row
+ * up by name.
+ */
 export function readCreatedId(json: unknown, singular: string): string | null {
   const root = asRecord(json);
-  const data = asRecord(root?.data) ?? root;
-  if (!data) return null;
-  const direct = asRecord(data[singular]);
-  if (typeof direct?.id === "string") return direct.id;
-  const createKey = `create${singular.charAt(0).toUpperCase()}${singular.slice(1)}`;
-  const created = asRecord(data[createKey]);
-  if (typeof created?.id === "string") return created.id;
-  if (typeof data.id === "string") return data.id;
+  if (!root) return null;
+  const data = asRecord(root.data) ?? root;
+  const capitalized = singular.charAt(0).toUpperCase() + singular.slice(1);
+  const keys = [
+    singular,
+    `createOne${capitalized}`,
+    `create${capitalized}`,
+    `createOne${capitalized}Metadata`,
+  ];
+  for (const key of keys) {
+    const node = asRecord(data[key]);
+    if (isRecordId(node?.id)) return node.id;
+  }
+  if (isRecordId(data.id)) return data.id;
+  if (data !== root && isRecordId(root.id)) return root.id;
+  for (const [key, value] of Object.entries(data)) {
+    if (!key.toLowerCase().includes(singular.toLowerCase())) continue;
+    const node = asRecord(value);
+    if (isRecordId(node?.id)) return node.id;
+  }
   return null;
 }
 

@@ -26,6 +26,7 @@ export type SyncableCall = {
   prospectTimezone: string | null;
   complianceSummary: string | null;
   twentyCallId: string | null;
+  twentyNoteId?: string | null;
 };
 
 export type SyncResult = {
@@ -138,8 +139,8 @@ export async function syncCallToTwenty(
       twentyCallId = created.id;
     }
 
-    let twentyNoteId: string | null = null;
-    if (options.mirrorNote !== false) {
+    let twentyNoteId: string | null = call.twentyNoteId ?? null;
+    if (options.mirrorNote !== false && !twentyNoteId) {
       try {
         const note = buildCallNote(call);
         const createdNote = await client.createTimelineNote({

@@ -100,6 +100,7 @@ function toSyncable(call: Call): SyncableCall {
     prospectTimezone: call.prospectTimezone,
     complianceSummary: call.complianceSummary,
     twentyCallId: call.twentyCallId,
+    twentyNoteId: call.twentyNoteId,
   };
 }
 

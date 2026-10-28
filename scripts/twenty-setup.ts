@@ -1,5 +1,6 @@
-import { planTwentySetup, type MetadataObject, type SetupAction } from "../src/lib/twenty/schema";
+import { fetchMetadataCollection, metadataFieldsFor, type MetadataRow } from "../src/lib/twenty/metadata";
 import { readCreatedId, twentyErrorMessage, twentyRoot } from "../src/lib/twenty/map";
+import { planTwentySetup, type MetadataObject, type SetupAction } from "../src/lib/twenty/schema";
 
 const apply = process.argv.includes("--apply");
 const withFollowUp = process.argv.includes("--with-next-follow-up");
@@ -29,38 +30,14 @@ async function twenty(path: string, init: RequestInit = {}): Promise<unknown> {
   return body;
 }
 
-function rows(json: unknown, plural: string): Record<string, unknown>[] {
-  if (!json || typeof json !== "object") return [];
-  const record = json as { data?: unknown; pageInfo?: { hasNextPage?: boolean; endCursor?: string } };
-  const data = record.data;
-  if (Array.isArray(data)) return data as Record<string, unknown>[];
-  if (data && typeof data === "object") {
-    const nested = data as Record<string, unknown>;
-    if (Array.isArray(nested[plural])) return nested[plural] as Record<string, unknown>[];
-    const connection = nested[plural] as { edges?: { node?: Record<string, unknown> }[] } | undefined;
-    if (Array.isArray(connection?.edges)) {
-      return connection.edges.map((edge) => edge.node).filter((node): node is Record<string, unknown> => Boolean(node));
-    }
-  }
-  return [];
+function listAll(kind: "objects" | "fields"): Promise<MetadataRow[]> {
+  return fetchMetadataCollection(kind, (path) => twenty(path));
 }
 
-async function listAll(kind: "objects" | "fields"): Promise<Record<string, unknown>[]> {
-  const collected: Record<string, unknown>[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 30; page += 1) {
-    const params = new URLSearchParams({ limit: "200" });
-    if (cursor) params.set("starting_after", cursor);
-    const json = (await twenty(`/rest/metadata/${kind}?${params.toString()}`)) as {
-      pageInfo?: { hasNextPage?: boolean; endCursor?: string };
-      data?: { pageInfo?: { hasNextPage?: boolean; endCursor?: string } };
-    };
-    collected.push(...rows(json, kind));
-    const pageInfo = json.pageInfo ?? json.data?.pageInfo;
-    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
-    cursor = pageInfo.endCursor;
-  }
-  return collected;
+async function findObjectId(nameSingular: string): Promise<string | null> {
+  const objects = await listAll("objects");
+  const found = objects.find((object) => object.nameSingular === nameSingular && typeof object.id === "string");
+  return typeof found?.id === "string" ? found.id : null;
 }
 
 function describe(action: SetupAction): string {
@@ -74,16 +51,13 @@ async function main() {
   console.log(`${apply ? "APPLY" : "DRY RUN"} against ${root}`);
   console.log("Dry run still reads metadata. Only --apply writes. Nothing here runs unless you execute this script.");
   const [objectRows, fieldRows] = await Promise.all([listAll("objects"), listAll("fields")]);
-  const objects: MetadataObject[] = objectRows.map((object) => {
-    const id = String(object.id);
-    const embedded = Array.isArray(object.fields) ? (object.fields as Record<string, unknown>[]) : [];
-    const related = fieldRows.filter((field) => field.objectMetadataId === id);
-    const fields = (embedded.length > 0 ? embedded : related).map((field) => ({
-      name: String(field.name),
-      type: String(field.type ?? ""),
+  const objects: MetadataObject[] = objectRows
+    .filter((object) => typeof object.id === "string" && typeof object.nameSingular === "string")
+    .map((object) => ({
+      id: String(object.id),
+      nameSingular: String(object.nameSingular),
+      fields: metadataFieldsFor(object, fieldRows),
     }));
-    return { id, nameSingular: String(object.nameSingular), fields };
-  });
   const actions = planTwentySetup(objects, { nextFollowUpField: followUpField, createMissingFollowUp: withFollowUp });
   if (actions.length === 0) {
     console.log("Twenty already has the dialer fields. Nothing to change.");
@@ -110,10 +84,14 @@ async function main() {
           icon: action.icon,
         }),
       });
-      const id = readCreatedId(json, "object") ?? readCreatedId(json, "createObject");
-      if (!id) throw new Error("Twenty did not return the new Call object id");
+      const id = readCreatedId(json, "object") ?? (await findObjectId(action.nameSingular));
+      if (!id) {
+        throw new Error(
+          `Twenty did not return the new ${action.nameSingular} object id, and no object with that nameSingular was found.`,
+        );
+      }
       ids.set(action.nameSingular, id);
-      console.log(`Created object ${id}`);
+      console.log(`Created object ${action.nameSingular} ${id}`);
       continue;
     }
     const objectMetadataId = ids.get(action.object);

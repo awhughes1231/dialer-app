@@ -248,6 +248,11 @@ export function createMockTwentyClient(): TwentyClient & {
       return found ? { id: found.id } : null;
     },
     async createCall(input) {
+      const existing = calls.find((row) => row.dialerCallId === input.dialerCallId);
+      if (existing) {
+        Object.assign(existing, input);
+        return { id: existing.id };
+      }
       const row = { ...input, id: `mock-call-${counter++}` };
       calls.push(row);
       return { id: row.id };

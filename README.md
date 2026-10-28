@@ -161,7 +161,7 @@ These are the hooks for keeping calls off Spam Likely. The dialer records the st
 - **Branded caller ID.** A separate Telnyx / First Orion-style product with its own fee. `brandedCallerIdStatus` starts as `not_started`. Turn it on after the first weeks of real traffic, not before the numbers have a clean calling history.
 - Spread volume across the pool. One number blasting every cold call gets flagged even with attestation.
 
-`npm run twenty:area-codes` is read-only. It counts area codes on people so you know which numbers to buy first. It pauses between pages because Twenty allows about 100 requests per minute.
+`npm run twenty:area-codes` is read-only. It pages through every person (about 14k in this CRM) and counts area codes so you know which numbers to buy first. It pauses between pages because Twenty allows about 100 requests per minute. `--pages=20` caps the read if you only want a sample.
 
 ## Twenty setup
 
@@ -173,6 +173,8 @@ export TWENTY_API_URL=https://crm.ecommercewala.co
 npm run twenty:setup           # prints the plan, reads metadata, writes nothing
 npm run twenty:setup -- --apply
 ```
+
+Metadata reads use `/rest/metadata/objects` and `/rest/metadata/fields` with no query string. This Twenty version rejects `limit` and `starting_after` on those routes and already returns the full list. A second run, after the Call object exists, prints `Nothing to change.`
 
 `--apply` creates:
 

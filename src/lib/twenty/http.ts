@@ -226,21 +226,47 @@ export class HttpTwentyClient implements TwentyClient {
   }
 
   async findCallByDialerId(dialerCallId: string): Promise<{ id: string } | null> {
-    const filter = `dialerCallId[eq]:"${dialerCallId}"`;
-    const json = await this.request(`/rest/calls?filter=${encodeURIComponent(filter)}&limit=1&fields=id,dialerCallId`);
-    const [first] = readRecordList(json, "calls");
-    const record = first && typeof first === "object" && first !== null && "id" in first ? first : null;
-    return record && typeof record.id === "string" ? { id: record.id } : null;
+    const filters = [`dialerCallId[eq]:"${dialerCallId}"`, `dialerCallId[eq]:${dialerCallId}`];
+    let lastError: unknown;
+    for (const filter of filters) {
+      try {
+        const json = await this.request(`/rest/calls?filter=${encodeURIComponent(filter)}&limit=10`);
+        const records = readRecordList(json, "calls").filter(
+          (row): row is { id?: unknown; dialerCallId?: unknown } => Boolean(row) && typeof row === "object",
+        );
+        const exact = records.find((row) => row.dialerCallId === dialerCallId && typeof row.id === "string");
+        if (exact && typeof exact.id === "string") return { id: exact.id };
+        if (records.length === 1 && typeof records[0].id === "string") return { id: records[0].id };
+        return null;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof TwentyRequestError && error.status === 400) continue;
+        throw error;
+      }
+    }
+    if (lastError instanceof Error) throw lastError;
+    return null;
   }
 
   async createCall(input: TwentyCallWrite): Promise<{ id: string }> {
+    if (input.dialerCallId) {
+      const existing = await this.findCallByDialerId(input.dialerCallId);
+      if (existing) {
+        await this.updateCall(existing.id, input);
+        return existing;
+      }
+    }
     const json = await this.request("/rest/calls", {
       method: "POST",
       body: JSON.stringify(compactRecord(input as unknown as Record<string, unknown>)),
     });
     const id = readCreatedId(json, "call");
-    if (!id) throw new TwentyRequestError("Twenty did not return a call id", 502, json);
-    return { id };
+    if (id) return { id };
+    if (input.dialerCallId) {
+      const existing = await this.findCallByDialerId(input.dialerCallId);
+      if (existing) return existing;
+    }
+    throw new TwentyRequestError("Twenty did not return a call id", 502, json);
   }
 
   async updateCall(id: string, input: Partial<TwentyCallWrite>): Promise<void> {
