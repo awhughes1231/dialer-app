@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env
+.env.local
+coverage
+*.log
+tests
+twenty-app/node_modules
