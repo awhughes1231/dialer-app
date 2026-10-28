@@ -1,0 +1,9 @@
+{
+  "name": "wala-dialer-twenty-app",
+  "private": true,
+  "type": "module",
+  "description": "Twenty app that adds a Call action on person, company, and opportunity records. The softphone itself runs in the dialer, not inside Twenty.",
+  "dependencies": {
+    "twenty-sdk": "2.51.3"
+  }
+}

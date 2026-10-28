@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  REP
+  ADMIN
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  role           Role     @default(REP)
+  image          String?
+  twentyMemberId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  calls          Call[]
+}
+
+model CallerIdNumber {
+  id                    String   @id @default(cuid())
+  e164                  String   @unique
+  areaCode              String?
+  state                 String?
+  label                 String?
+  isDefault             Boolean  @default(false)
+  active                Boolean  @default(true)
+  demo                  Boolean  @default(false)
+  telnyxPhoneNumberId   String?
+  cnamDisplayName       String?
+  cnamStatus            String   @default("unregistered")
+  stirShakenStatus      String   @default("telnyx_default")
+  brandedCallerIdStatus String   @default("not_started")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model DncEntry {
+  id        String   @id @default(cuid())
+  e164      String   @unique
+  reason    String
+  source    String   @default("INTERNAL")
+  demo      Boolean  @default(false)
+  createdBy String?
+  createdAt DateTime @default(now())
+}
+
+model Call {
+  id                  String    @id @default(cuid())
+  repId               String?
+  rep                 User?     @relation(fields: [repId], references: [id], onDelete: SetNull)
+  repName             String?
+  repEmail            String?
+  direction           String
+  fromNumber          String?
+  toNumber            String
+  personId            String?
+  companyId           String?
+  opportunityId       String?
+  prospectName        String?
+  companyName         String?
+  prospectState       String?
+  prospectTimezone    String?
+  areaCode            String?
+  localTimeLabel      String?
+  complianceSummary   String?
+  status              String
+  startedAt           DateTime?
+  answeredAt          DateTime?
+  endedAt             DateTime?
+  durationSeconds     Int?
+  disposition         String?
+  notes               String?
+  recordingUrl        String?
+  recordingStatus     String    @default("PENDING")
+  disclosureRequired  Boolean   @default(false)
+  disclosurePlayed    Boolean   @default(false)
+  recordingMode       String?
+  callerIdReason      String?
+  blockReason         String?
+  warnings            String?
+  hangupCause         String?
+  providerError       String?
+  telnyxCallControlId String?   @unique
+  telnyxCallSessionId String?
+  twentyCallId        String?
+  twentyNoteId        String?
+  twentySyncStatus    String    @default("PENDING")
+  twentySyncError     String?
+  nextFollowUp        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([repId, createdAt])
+  @@index([status])
+  @@index([toNumber])
+  @@index([twentySyncStatus])
+  @@index([createdAt])
+}
+
+model WebhookEvent {
+  id         String   @id
+  provider   String
+  eventType  String
+  receivedAt DateTime @default(now())
+}

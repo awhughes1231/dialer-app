@@ -1,0 +1,36 @@
+{
+  "name": "wala-dialer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted click-to-call dialer for E-Commerce Wala. Talks to Twenty CRM and Telnyx.",
+  "scripts": {
+    "dev": "prisma generate && next dev",
+    "build": "prisma generate && next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "test": "vitest run",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "twenty:setup": "tsx scripts/twenty-setup.ts",
+    "twenty:area-codes": "tsx scripts/area-code-report.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@telnyx/webrtc": "^2.22.15",
+    "libphonenumber-js": "^1.12.15",
+    "next": "^15.5.4",
+    "next-auth": "^5.0.0-beta.29",
+    "prisma": "^6.16.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tsx": "^4.20.5",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

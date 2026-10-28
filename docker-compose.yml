@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dialer
+      POSTGRES_PASSWORD: dialer
+      POSTGRES_DB: dialer
+    volumes:
+      - dialer_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dialer -d dialer"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3010:3000"
+    environment:
+      DATABASE_URL: postgresql://dialer:dialer@db:5432/dialer
+      AUTH_SECRET: dev-only-change-me-please-use-32b
+      AUTH_URL: http://localhost:3010
+      AUTH_TRUST_HOST: "true"
+      PUBLIC_APP_URL: http://localhost:3010
+      AUTH_DEV_LOGIN: "true"
+      ALLOWED_EMAIL_DOMAIN: ecommercewala.co
+      ADMIN_EMAILS: admin@ecommercewala.co
+      TWENTY_MODE: mock
+      TWENTY_API_URL: https://crm.ecommercewala.co
+      TWENTY_APP_URL: https://crm.ecommercewala.co
+      TELEPHONY_MODE: mock
+      SEED_DEMO_DATA: "true"
+      RECORDING_TWO_PARTY_MODE: announce
+      RECORDING_ANNOUNCE_IN_ONE_PARTY: "true"
+      COMPLIANCE_UNKNOWN_TZ: block
+    restart: unless-stopped
+
+volumes:
+  dialer_pg:
